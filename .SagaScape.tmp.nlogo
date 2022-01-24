@@ -530,6 +530,21 @@ NIL
 
 SLIDER
 0
+108
+172
+141
+communities-number
+communities-number
+0
+20
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+0
 141
 172
 174
