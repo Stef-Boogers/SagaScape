@@ -6,12 +6,13 @@
 ;; TBI = To Be Implemented
 
 
-;; TBI: set walking cost of lakes to high number, so they become obstacles. Rivers would probably have been crossed readily.
+;; TBI: set walking cost of lakes to high number, so they become obstacles. Rivers would probably have been crossed readily. Current version = only most western lake inaccessible bc other ones not in range.
 ;; TBI: detailed settlement patterns with site sizes (no of household) & periodization
 ;; TBI: new forest growth function
 ;; TBI: correct fertility regeneration function. Currently overshoots.
-;; TBI: communities check whether to convert wood to charcoal or not (now no use of charcoal assumed)
+;; TBI: communities check whether to convert wood to charcoal or not (now use of charcoal always implicitly assumed)
 ;; TBI: disturbances. Forest fires, bad harvests etc.
+;; TBI: depreciation of the woodstock? When fields are cleared for agriculture, the resulting woodstock is so massive that it takes centuries to get through.
 
 
 extensions [
@@ -104,7 +105,6 @@ end
 
 to go
   ;add-sites
-  ;energy-availability
   exploit-resources
   viz-exploitation
   burn-resources
@@ -211,6 +211,7 @@ to setup-least-cost-distances ;; Every community calculates the least-cost pathw
     set in-range-of []
     set claimed-cost []
    ]
+  ask patches with [pxcor < 44 and pcolor = blue] [set walkingTime 10] ;; Quick fix for community Düver Yarimada: the lake becomes inaccessible.
   ask communities [
     let claim self
     ask patches in-radius territory [ ;; Initial search radius of "territory" km: max distance a villager would walk to reach the fields on flat terrain (likely 5 km = 50 map units)
@@ -265,6 +266,20 @@ to setup-resources ;; already included in GIS step that wood or food cannot grow
     set clay-quantity 0 ; patches located at a community or on water cannot be exploited for clay
     set clay? false
   ]
+
+  ;; Spinup procedure to account for forest loss and agricultural fields in previous period.
+  ;; See MSc thesis of Joachim López p. 32: during Early Iron Age, approx. 25% of land patches covered with agriculture (that's a lot, damn) and 40% with forest. Other 35% steppe etc.
+
+  let total-land count patches with [land? = true]
+  let total-population sum [population] of communities ; using population percentage as weighing method
+  ask communities [
+    let homebase self
+    let initial-open-patches 0.60 * total-land * population / total-population ;; total patches not under forest cover, weighted by population
+    ask min-n-of initial-open-patches patches with [wood-standingStock > 0] [distance homebase][
+      set wood-standingStock 0
+      set wood-age 0
+    ]
+  ]
 end
 
 to setup-regeneration ;; Procedure required to properly initialize fertility decline and restoration.
@@ -274,7 +289,7 @@ to setup-regeneration ;; Procedure required to properly initialize fertility dec
       set growth-rate (1 / regeneration-time) * ln (99 * original-food-value / regeneration-reserve - 99)
     ]
     [
-      set growth-rate 0
+      set growth-rate 0 ; incrementally small growth is set to zero instead
     ]
   ]
 end
@@ -282,13 +297,6 @@ end
 to add-sites ;; TBI: periodically adding sites (both from settlement data and random site distribution)
 end
 
-to energy-availability  ;; every community checks current energy availability and future need to determine next strategy: food is more important than wood, which is more important than clay.
-  ask communities [
-    set food-prediction food-stock - food-requirement
-    set wood-prediction wood-stock - wood-requirement
-    set clay-prediction clay-stock - clay-requirement
-  ]
-end
 
 to exploit-resources
   ask communities [
@@ -834,9 +842,9 @@ SLIDER
 116
 wood-demand-pc
 wood-demand-pc
-0.5
-1
-1.0
+1.15
+1.40
+1.3
 0.05
 1
 kg/day
