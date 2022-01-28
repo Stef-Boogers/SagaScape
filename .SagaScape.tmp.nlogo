@@ -8,11 +8,11 @@
 
 ;; TBI: set walking cost of lakes to high number, so they become obstacles. Rivers would probably have been crossed readily. Current version = only most western lake inaccessible bc other ones not in range.
 ;; TBI: detailed settlement patterns with site sizes (no of household) & periodization
-;; TBI: new forest growth function
-;; TBI: correct fertility regeneration function. Currently overshoots.
+;; TBI: new forest growth function. Currently overshoots for some patches. Now solved using dirty fix.
 ;; TBI: communities check whether to convert wood to charcoal or not (now use of charcoal always implicitly assumed)
 ;; TBI: disturbances. Forest fires, bad harvests etc.
-;; TBI: depreciation of the woodstock? When fields are cleared for agriculture, the resulting woodstock is so massive that it takes centuries to get through.
+;; TBI: depreciation of the woodstock? When fields are cleared for agriculture, the resulting woodstock is so massive that it takes years to get through.
+;; TBI:
 
 
 extensions [
@@ -74,9 +74,6 @@ communities-own [
   total-clay-effort   ;; "
   site-name           ;; value for site name if historical dataset is used
   candidate-patches   ;; patches that are within range of the community.
-  food-prediction     ;; expected stock of food after next timestep (stock - expected consumption), can be negative
-  wood-prediction     ;; expected stock of wood after next timestep (stock - expected consumption), can be negative
-  clay-prediction     ;; expected stock of clay after next timestep (stock - expected consumption), can be negative
 ]
 
 rangers-own [
@@ -290,6 +287,7 @@ to setup-regeneration ;; Procedure required to properly initialize fertility dec
     ]
     [
       set growth-rate 0 ; incrementally small growth is set to zero instead
+      set original-food-value 0
     ]
   ]
 end
@@ -319,8 +317,8 @@ to exploit-resources
       set food-stock food-stock + food-exploited
       set wood-stock wood-stock + wood-from-the-field
       set total-food-effort total-food-effort + food-effort
-      set food-workdays food-workdays - 42 ; see Goodchild 2007 p. 301: 42 mandays per ha per annum
-      set workdays workdays - 42
+      set food-workdays food-workdays - 42 - 42 * 2 * food-effort / 10 ; see Goodchild 2007 p. 301: 42 mandays per ha per annum. Add to this the amount of workdays spent on migrating back and forth. (no. of trips * time back and forth per trip / hours of work per day (assumed 10))
+      set workdays workdays - 42 - 42 * 2 * food-effort / 10
     ]
   ]
 
@@ -339,105 +337,39 @@ to exploit-resources
       ]
       set wood-stock wood-stock + wood-exploited
       set total-wood-effort total-wood-effort + wood-effort
-      let workdays-until-deforested wood-exploited / head-load * 2 * wood-effort / 10 ;; no. of trips * time back and forth per trip / hours of work per day (assumed 10)
+      let workdays-until-deforested wood-exploited / head-load * (2 * wood-effort + head-load * 49) / 10 ;; no. of trips * (time back and forth per trip + time spent gathering 1 HL (49 hrs per m³)) / hours of work per day (assumed 10)
       set workdays workdays - workdays-until-deforested
     ]
-  ]
-end
+ ]
 
-;to exploit-resources
-;  ifelse ticks mod 2 = 0 [        ;; alternate between food exploitation and clay/wood
-;  ;; every two ticks (i.e. once per year) households move to farms to exploit all available resources and move back to settlement
-;    ask households [
-;      let homebase parent
-;      move-to max-one-of candidate-patches [food-fertility / (item position homebase in-range-of claimed-cost)] ; Households strive for the best food / walking cost ratio
-;      let food-exploited 0
+;  ask communities [
+;    let homebase self
+;    let clay-exploited 0
+;    let clay-effort 0
+;    while [any? candidate-patches with [clay? = true] and workdays > 0 and clay-stock < clay-requirement][
+;      let target max-one-of candidate-patches with [clay? = true][clay-quantity / (item position homebase in-range-of claimed-cost)] ; Communities strive for the best clay / walking cost ratio
 ;      let wood-from-the-field 0
-;      let effort 0
-;      ask patch-here [
-;        set effort item position homebase in-range-of claimed-cost
-;        set food-exploited food-fertility
-;        set food-fertility 0    ;; basic assumption of exploiting all available food
-;        set wood-from-the-field wood-standingStock
-;        set wood-standingStock 0
+;      ask target [
+;        set clay-effort item position homebase in-range-of claimed-cost
+;        set clay-exploited clay-exploitation-rate / 100 * clay-quantity
+;        set clay-quantity (clay-quantity - clay-exploited)
+;        if clay-quantity < clay-threshold * 10000 * 2 * 1000 [
+;          set clay? false
+;        ]
+;        set wood-from-the-field wood-standingStock ; patch is cleared for clay exploitation: wood goes to community as well
+;        set food-fertility 0  ;; once a patch is exploited for clay, it cannot provide food or wood anymore
+;        set wood-standingStock 0  ;; once a patch is exploited for clay, it cannot provide food or wood anymore
 ;        set wood-age 0
-;        set wood? false ;; assumption that when exploited for food, fields don't regenerate wood.
+;        set wood? false
+;        set food? false
 ;      ]
-;      set time-travelled effort
-;      set food-carry food-exploited
-;      set wood-carry wood-from-the-field
-;      move-to parent
-;      ask communities-here [
-;        set food-stock food-stock + [food-carry] of myself
-;        set wood-stock wood-stock + [wood-carry] of myself
-;        set total-food-effort total-food-effort + [time-travelled] of myself
-;      ]
+;      set clay-stock clay-stock + clay-exploited
+;      set total-clay-effort total-clay-effort + clay-effort
+;      set wood-stock wood-stock + wood-from-the-field
+;      ;;TBI: workdays
 ;    ]
 ;  ]
-;  [
-;    ask households [
-;      ifelse random 2 > 0 and any? candidate-patches with [clay? = true] [ ; if no clay within reach, settlement focuses on wood
-;        let homebase parent
-;        move-to max-one-of candidate-patches with [clay? = true] [clay-quantity / (item position homebase in-range-of claimed-cost)] ; Households strive for the best clay / walking cost ratio
-;        let clay-exploited 0
-;        let wood-from-the-field 0
-;        let effort 0
-;        ask patch-here [
-;          set effort item position homebase in-range-of claimed-cost
-;          ;set clay-exploited (clay-quantity * (clay-exploitation-rate / 100))
-;          set clay-exploited 1500 ;; a single household harvests about 1 m³ per year, which weighs approx. 1500 kgs
-;          set clay-quantity (clay-quantity - clay-exploited)
-;          if clay-quantity < clay-threshold * 10000 * 2 * 1000 [
-;            set clay? false
-;            ;set clay-quality 0
-;          ]
-;          set wood-from-the-field wood-standingStock ; patch is cleared for clay exploitation: wood goes to community as well
-;          set food-fertility 0  ;; once a patch is exploited for clay, it cannot provide food or wood anymore
-;          set wood-standingStock 0  ;; once a patch is exploited for clay, it cannot provide food or wood anymore
-;          set wood-age 0
-;          set wood? false
-;          set food? false
-;        ]
-;        set time-travelled effort
-;        set clay-carry clay-exploited
-;        set wood-carry wood-from-the-field
-;        move-to parent
-;        ask communities-here [
-;          set clay-stock clay-stock + [clay-carry] of myself   ;; exploited clay is added to community stock
-;          set wood-stock wood-stock + [wood-carry] of myself
-;          set total-clay-effort total-clay-effort + [time-travelled] of myself
-;        ]
-;        set clay-carry 0
-;      ]
-;
-;      [
-;        let homebase parent
-;        move-to max-one-of candidate-patches [wood-standingStock / (item position homebase in-range-of claimed-cost)] ; Households strive for the best standing stock / walking cost ratio
-;        let effort 0
-;        let wood-exploited 0
-;        ask patch-here [
-;          set effort item position homebase in-range-of claimed-cost
-;          set wood-exploited wood-standingStock
-;          set wood-standingStock 0  ;; all wood from exploited patch is collected.
-;          set wood-age 0 ;; resetting to zero for use in the growth function.
-;        ]
-;        set time-travelled effort
-;        set wood-carry wood-exploited
-;        move-to parent
-;        ask communities-here [
-;          set wood-stock wood-stock + [wood-carry] of myself
-;          set total-wood-effort total-wood-effort + [time-travelled] of myself
-;        ]
-;      ]
-;    ]
-;  ]
-;
-;  ;; TBI: opportunity costs! part of population exploits food, other part wood and clay
-;  ;; TBI: if patch is first exploited as clay --> no food/wood possible anymore? (for some time)
-;  ;; TBI: if wood --> food and clay become possible after wood has been depleted or regrowth
-;  ;; TBI: if food --> tends to stay food? assume stability in agricultural plots?
-;
-;end
+end ;; TBI: less strict switching between land use types.
 
 to burn-resources ;; every tick communities use (part of) available food, clay and wood to sustain themselves
   ask communities [
@@ -450,18 +382,20 @@ end
 
 to regenerate
   ask patches [
-    if food? = true [  ;; only patches that can still grow food (e.g. not clay quarries) can regrow food
+    if food? = true [  ;; only patches that can still grow food (e.g. not clay quarries) regrow food
       if food-fertility < original-food-value [
         ifelse food-fertility > 0 [
-          set food-fertility food-fertility + (food-fertility * growth-rate * (1 - food-fertility / original-food-value))
+          let food-fertility-regeneration (1 - food-fertility / original-food-value) / (1 / original-food-value + exp(- growth-rate) / (food-fertility * (1 - exp(- growth-rate))))
+          set food-fertility food-fertility + food-fertility-regeneration
         ]
         [
-          set food-fertility regeneration-reserve + (regeneration-reserve * growth-rate * (1 - regeneration-reserve / original-food-value))
+          set food-fertility regeneration-reserve
         ]
       ]
-      set food-fertility min list food-fertility original-food-value ; Correct overshoot introduced by procedure: will be changed in the future.
     ]
   ]
+
+
   ask patches [
     wood-updateStandingStock
   ]
@@ -507,9 +441,12 @@ ifelse landuse-visualization [
 end
 
 to wood-updateStandingStock
-  if wood? = true [  ;; only patches that can still grow wood (e.g. not clay quarries) can regrow food
-    if wood-standingStock < wood-maxStandingStock [
+  if wood? = true [  ;; only patches that can still grow wood (e.g. not clay quarries) regrow wood
+    ifelse wood-standingStock < wood-maxStandingStock [
      set wood-standingStock wood-rico * exp(wood-power * wood-age)
+    ]
+    [
+      set wood-standingStock wood-maxStandingStock
     ]
     set wood-age wood-age + 1
   ]
@@ -844,7 +781,7 @@ wood-demand-pc
 wood-demand-pc
 1.15
 1.40
-1.3
+1.4
 0.05
 1
 kg/day
