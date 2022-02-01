@@ -283,7 +283,8 @@ to setup-regeneration ;; Procedure required to properly initialize fertility dec
   set regeneration-reserve 0.1 ;; required non-zero initialisation for Verhulst growth
   ask patches with [original-food-value > 0] [
     ifelse original-food-value > regeneration-reserve [
-      set growth-rate (1 / regeneration-time) * ln (99 * original-food-value / regeneration-reserve - 99)
+      ;set growth-rate (1 / regeneration-time) * ln (99 * original-food-value / regeneration-reserve - 99)
+      set growth-rate (99 * original-food-value / regeneration-reserve - 99) ^ (- 1 / regeneration-time)
     ]
     [
       set growth-rate 0 ; incrementally small growth is set to zero instead
@@ -327,6 +328,7 @@ to exploit-resources
     let wood-exploited 0
     let wood-effort 0
     let head-load (max list (random-normal 29.21 14.14) 4.5) / 695;; see Amutabi Kefa et al. 2018 p. 4. Converted to m³ from kg at MC 30%.
+    let head-load-gathering-time 49 ; 49 hrs per m³ of wood gathering. See MSc thesis Katie Preston p. 30.
     while [any? candidate-patches with [wood-standingStock > 0] and workdays > 0 and wood-stock < wood-requirement] [
       let target max-one-of candidate-patches [wood-standingStock / (item position homebase in-range-of claimed-cost)]
       ask target [
@@ -337,7 +339,7 @@ to exploit-resources
       ]
       set wood-stock wood-stock + wood-exploited
       set total-wood-effort total-wood-effort + wood-effort
-      let workdays-until-deforested wood-exploited / head-load * (2 * wood-effort + head-load * 49) / 10 ;; no. of trips * (time back and forth per trip + time spent gathering 1 HL (49 hrs per m³)) / hours of work per day (assumed 10)
+      let workdays-until-deforested wood-exploited / head-load * (2 * wood-effort + head-load * head-load-gathering-time ) / 10 ;; no. of trips * (time back and forth per trip + time spent gathering 1 HL) / hours of work per day (assumed 10)
       set workdays workdays - workdays-until-deforested
     ]
  ]
@@ -385,7 +387,7 @@ to regenerate
     if food? = true [  ;; only patches that can still grow food (e.g. not clay quarries) regrow food
       if food-fertility < original-food-value [
         ifelse food-fertility > 0 [
-          let food-fertility-regeneration (1 - food-fertility / original-food-value) / (1 / original-food-value + exp(- growth-rate) / (food-fertility * (1 - exp(- growth-rate))))
+          let food-fertility-regeneration (1 - food-fertility / original-food-value) / (1 / original-food-value + growth-rate / (food-fertility * (1 - growth-rate)))
           set food-fertility food-fertility + food-fertility-regeneration
         ]
         [
