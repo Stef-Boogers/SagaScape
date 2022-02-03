@@ -5,7 +5,7 @@
 ;; = regular comment
 ;; TBI = To Be Implemented
 
-
+;; TBI: use table extension to setup when gis data has already been loaded in once (see https://www.jasss.org/20/1/3.html).
 ;; TBI: set walking cost of lakes to high number, so they become obstacles. Rivers would probably have been crossed readily. Current version = only most western lake inaccessible bc other ones not in range.
 ;; TBI: detailed settlement patterns with site sizes (no of household) & periodization
 ;; TBI: new forest growth function. Currently overshoots for some patches. Now solved using dirty fix.
@@ -144,7 +144,9 @@ to setup-topo
   ask patches [set walkingTime gis:raster-value walkingTime-raster pxcor (max-pycor - pycor)]
   ask patches [set wood-rico gis:raster-value rico-raster pxcor (max-pycor - pycor)]
   ask patches [set wood-power gis:raster-value power-raster pxcor (max-pycor - pycor)]
-  ask patches [set clay-quantity gis:raster-value clay-raster pxcor (max-pycor - pycor)]
+  ask patches [set clay-quantity gis:raster-value clay-raster pxcor (max-pycor - pycor)
+    set clay-quantity clay-quantity / 1000 ; conversion to tonnes per ha in uppermost 2 m
+  ]
   let e-min min [elevation] of patches
   let e-max max [elevation] of patches
   ask patches [
@@ -195,7 +197,7 @@ to setup-communities
         set total-clay-effort 0
         set food-requirement population * 365 * food-demand-pc / 1000 ;; conversion to tonnes
         set wood-requirement population * 365 * (wood-demand-pc + 0.0276 * [elevation] of patch-here / 1000) / 695 ;; conversion to m³, considering average density of wood in Saga at MC of 30% is about 695 kg/m³. Also taking altitude of settlent into account (Boogers et al. in press).
-        set clay-requirement population * clay-demand-pc ;; more or less a random number for now
+        set clay-requirement population * clay-demand-pc / 1000;; more or less a random number for now, in tonnes
         set workdays population * active-percentage / 100 * 365
         set food-workdays population * active-percentage / 100 * agricultural-days
       ]
@@ -242,7 +244,7 @@ end
 
 to setup-resources ;; already included in GIS step that wood or food cannot grow on water.
   ask patches [
-    ifelse clay-quantity > clay-threshold * 10000 * 2 * 1000 [set clay? true][set clay? false] ; clay-threshold is expressed in tons per m³ of soil while clay-quantity is expressed in kgs per ha in the two uppermost m³ of soil.
+    ifelse clay-quantity > clay-threshold * 10000 * 2  [set clay? true][set clay? false] ; clay-threshold is expressed in tons per m³ of soil while clay-quantity is expressed in tons per ha in the two uppermost m³ of soil.
     ifelse not any? communities-here [    ;; settled patches are not forested and not suited for agriculture
       set wood? true
       set food? true
@@ -303,8 +305,10 @@ to exploit-resources
     let food-exploited 0
     let food-effort 0
     let wood-from-the-field 0
-    while [any? candidate-patches with [food-fertility > 0] and food-workdays > 0 and food-stock < food-requirement] [ ;; 1. still patches with resource, 2. still workdays left, 3. still resource required
-      let target max-one-of candidate-patches [food-fertility / (item position homebase in-range-of claimed-cost)] ; communities strive for the best food / walking cost ratio
+    let sorted-patches sort-on [(- food-fertility) / (item position homebase in-range-of claimed-cost)] candidate-patches ; communities strive for the best food / walking cost ratio
+    let index 0
+    while [food-stock < food-requirement and any? candidate-patches with [food-fertility > 0] and food-workdays > 0] [ ; 1. still resource required, 2. still patches with resource, 3. still workdays left
+      let target item index sorted-patches
       ask target [
         set food-effort item position homebase in-range-of claimed-cost
         set food-exploited food-fertility
@@ -315,6 +319,7 @@ to exploit-resources
         set wood? false ;; assumption that when exploited for food, fields don't regenerate wood.
         set food? true
       ]
+      set index index + 1
       set food-stock food-stock + food-exploited
       set wood-stock wood-stock + wood-from-the-field
       set total-food-effort total-food-effort + food-effort
@@ -329,14 +334,17 @@ to exploit-resources
     let wood-effort 0
     let head-load (max list (random-normal 29.21 14.14) 4.5) / 695;; see Amutabi Kefa et al. 2018 p. 4. Converted to m³ from kg at MC 30%.
     let head-load-gathering-time 49 ; 49 hrs per m³ of wood gathering. See MSc thesis Katie Preston p. 30.
-    while [any? candidate-patches with [wood-standingStock > 0] and workdays > 0 and wood-stock < wood-requirement] [
-      let target max-one-of candidate-patches [wood-standingStock / (item position homebase in-range-of claimed-cost)]
+    let sorted-patches sort-on [(- wood-standingStock) / (item position homebase in-range-of claimed-cost)] candidate-patches
+    let index 0
+    while [wood-stock < wood-requirement and any? candidate-patches with [wood-standingStock > 0] and workdays > 0] [
+      let target item index sorted-patches
       ask target [
         set wood-effort item position homebase in-range-of claimed-cost
         set wood-exploited wood-standingStock
         set wood-standingStock 0
         set wood-age 0
       ]
+      set index index + 1
       set wood-stock wood-stock + wood-exploited
       set total-wood-effort total-wood-effort + wood-effort
       let workdays-until-deforested wood-exploited / head-load * (2 * wood-effort + head-load * head-load-gathering-time ) / 10 ;; no. of trips * (time back and forth per trip + time spent gathering 1 HL) / hours of work per day (assumed 10)
@@ -344,33 +352,36 @@ to exploit-resources
     ]
  ]
 
-;  ask communities [
-;    let homebase self
-;    let clay-exploited 0
-;    let clay-effort 0
-;    while [any? candidate-patches with [clay? = true] and workdays > 0 and clay-stock < clay-requirement][
-;      let target max-one-of candidate-patches with [clay? = true][clay-quantity / (item position homebase in-range-of claimed-cost)] ; Communities strive for the best clay / walking cost ratio
-;      let wood-from-the-field 0
-;      ask target [
-;        set clay-effort item position homebase in-range-of claimed-cost
-;        set clay-exploited clay-exploitation-rate / 100 * clay-quantity
-;        set clay-quantity (clay-quantity - clay-exploited)
-;        if clay-quantity < clay-threshold * 10000 * 2 * 1000 [
-;          set clay? false
-;        ]
-;        set wood-from-the-field wood-standingStock ; patch is cleared for clay exploitation: wood goes to community as well
-;        set food-fertility 0  ;; once a patch is exploited for clay, it cannot provide food or wood anymore
-;        set wood-standingStock 0  ;; once a patch is exploited for clay, it cannot provide food or wood anymore
-;        set wood-age 0
-;        set wood? false
-;        set food? false
-;      ]
-;      set clay-stock clay-stock + clay-exploited
-;      set total-clay-effort total-clay-effort + clay-effort
-;      set wood-stock wood-stock + wood-from-the-field
-;      ;;TBI: workdays
-;    ]
-;  ]
+  ask communities [
+    let homebase self
+    let clay-exploited 0
+    let clay-effort 0
+    let sorted-patches sort-on [(- clay-quantity) / (item position homebase in-range-of claimed-cost)] candidate-patches with [clay? = true]
+    let index 0
+    while [clay-stock < clay-requirement and any? candidate-patches with [clay? = true] and workdays > 0][
+      let wood-from-the-field 0
+      let target item index sorted-patches
+      ask target [
+        set clay-effort item position homebase in-range-of claimed-cost
+        set clay-exploited clay-exploitation-rate / 100 * clay-quantity
+        set clay-quantity (clay-quantity - clay-exploited)
+        if clay-quantity < clay-threshold * 10000 * 2 * 100 [
+          set clay? false
+        ]
+        set index index + 1
+        set wood-from-the-field wood-standingStock ; patch is cleared for clay exploitation: wood goes to community as well
+        set food-fertility 0  ;; once a patch is exploited for clay, it cannot provide food or wood anymore
+        set wood-standingStock 0  ;; once a patch is exploited for clay, it cannot provide food or wood anymore
+        set wood-age 0
+        set wood? false
+        set food? false
+      ]
+      set clay-stock clay-stock + clay-exploited
+      set total-clay-effort total-clay-effort + clay-effort
+      set wood-stock wood-stock + wood-from-the-field
+      ;;TBI: workdays
+    ]
+  ]
 end ;; TBI: less strict switching between land use types.
 
 to burn-resources ;; every tick communities use (part of) available food, clay and wood to sustain themselves
@@ -813,7 +824,7 @@ active-percentage
 active-percentage
 0
 100
-25.0
+17.0
 1
 1
 %
