@@ -66,6 +66,7 @@ communities-own [
   food-requirement    ;; total requirement of food
   wood-requirement    ;; " wood. Depends on altitude.
   clay-requirement    ;; " clay
+  wood-for-clay       ;; additional requirement of wood for firing clay
   food-stock          ;; cumulative stock of food brought in by households
   clay-stock          ;; cumulative stock of clay brought in by households
   wood-stock          ;; cumulative stock of wood brought in by households
@@ -197,7 +198,8 @@ to setup-communities
         set total-clay-effort 0
         set food-requirement population * 365 * food-demand-pc / 1000 ;; conversion to tonnes
         set wood-requirement population * 365 * (wood-demand-pc + 0.0276 * [elevation] of patch-here / 1000) / 695 ;; conversion to m³, considering average density of wood in Saga at MC of 30% is about 695 kg/m³. Also taking altitude of settlent into account (Boogers et al. in press).
-        set clay-requirement population * clay-demand-pc / 1000;; more or less a random number for now, in tonnes
+        set clay-requirement population * clay-demand-pc / 1000;; more or less a random number for now, in tons
+        set wood-for-clay 0
         set workdays population * active-percentage / 100 * 365
         set food-workdays population * active-percentage / 100 * agricultural-days
       ]
@@ -358,13 +360,13 @@ to exploit-resources
     let clay-effort 0
     let sorted-patches sort-on [(- clay-quantity) / (item position homebase in-range-of claimed-cost)] candidate-patches with [clay? = true]
     let index 0
+    set wood-for-clay 0
     while [clay-stock < clay-requirement and any? candidate-patches with [clay? = true] and workdays > 0][
       let wood-from-the-field 0
       let target item index sorted-patches
       ask target [
         set clay-effort item position homebase in-range-of claimed-cost
-
-        set clay-exploited clay-exploitation-rate / 100 * clay-quantity
+        set clay-exploited 19 ; 1 m³ weighs approximately 1.9 tonnes (see Delaine 1992 p. 182), excavation procedure takes place in steps of 10 m³
         set clay-quantity (clay-quantity - clay-exploited)
         if clay-quantity < clay-threshold * 10000 * 2 [
           set clay? false
@@ -380,7 +382,12 @@ to exploit-resources
       set clay-stock clay-stock + clay-exploited
       set total-clay-effort total-clay-effort + clay-effort
       set wood-stock wood-stock + wood-from-the-field
-      ;;TBI: workdays
+      set wood-for-clay wood-for-clay + clay-exploited * kgs-wood-per-kg-clay ;; Janssen et al. 2017: 2 - 5 MJ per kg clay required. Further used energy content of dried, yet still moist wood (11.4 - 13.86 MJ/kg).
+      let workdays-until-quarried 0.193 * clay-exploited / 1.9 ;; Delaine 1992 p. 182: 0.13 days/m³ to dig clay and 0.063 days/m³ to fill baskets.
+      let baskets clay-exploited / 0.05 ;; number of 50 kg baskets needed to haul
+      let workdays-hauling baskets * clay-effort * 2 * 6.5 / 10 ;; Going back and forth between quarry and community, taking into account slowing factor of 6.5 (calculated from Delaine 1992) bc of load and 10 hr-working day.
+      let workdays-until-fired 4.5 / 0.980 * clay-exploited;; Janssen: 4-5 days per firing cycle of 360 - 1600 kgs of clay vessels. Only actual firing taken into account, no throwing etc.
+      set workdays workdays - workdays-until-quarried - workdays-hauling - workdays-until-fired
     ]
   ]
 end ;; TBI: less strict switching between land use types.
@@ -388,7 +395,7 @@ end ;; TBI: less strict switching between land use types.
 to burn-resources ;; every tick communities use (part of) available food, clay and wood to sustain themselves
   ask communities [
     set food-stock food-stock - food-requirement ;; possible to go below 0, so it can be corrected the following  year
-    set wood-stock wood-stock - wood-requirement
+    set wood-stock wood-stock - wood-requirement - wood-for-clay ;; clay is only exploited after wood, so additional wood is cut the next year.
     set clay-stock clay-stock - clay-requirement
   ]
 
@@ -585,21 +592,6 @@ regeneration-time
 1
 1
 NIL
-HORIZONTAL
-
-SLIDER
-0
-347
-172
-380
-clay-exploitation-rate
-clay-exploitation-rate
-0
-100
-10.0
-1
-1
-%
 HORIZONTAL
 
 SLIDER
@@ -844,6 +836,21 @@ agricultural-days
 5
 1
 days/yr
+HORIZONTAL
+
+SLIDER
+0
+347
+172
+380
+kgs-wood-per-kg-clay
+kgs-wood-per-kg-clay
+0.14
+0.44
+0.44
+0.05
+1
+NIL
 HORIZONTAL
 
 @#$#@#$#@
