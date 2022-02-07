@@ -10,7 +10,7 @@
 ;; TBI: detailed settlement patterns with site sizes (no of household) & periodization
 ;; TBI: new forest growth function. Currently overshoots for some patches. Now solved using dirty fix.
 ;; TBI: communities check whether to convert wood to charcoal or not (now use of charcoal always implicitly assumed)
-;; TBI: disturbances. Forest fires, bad harvests etc.
+;; TBI: disturbances. Forest fires, bad harvests, depreciation of food-stock (Goodchild p. 278: up to 30%) etc.
 ;; TBI: depreciation of the woodstock? When fields are cleared for agriculture, the resulting woodstock is so massive that it takes years to get through.
 ;; TBI: clay exploitation procedure with realistic values and inclusion of working hours per m³.
 
@@ -57,6 +57,8 @@ patches-own [
   walkingTime            ;; amount of time required to cross a patch (from preprocessed raster)
   in-range-of            ;; list of communities that could potentially make use of this patch for agriculture or forestry
   claimed-cost           ;; walking time cost from community to its claimed patches in same order as "claimed" list
+  fire-return-rate       ;; number of ticks before fire should return
+  time-since-fire        ;; number of ticks since last forest fire
 ]
 
 communities-own [
@@ -75,6 +77,7 @@ communities-own [
   total-clay-effort   ;; "
   site-name           ;; value for site name if historical dataset is used
   candidate-patches   ;; patches that are within range of the community.
+  grain-per-grain-factor ;; factor accounting for resowing loss.
 ]
 
 rangers-own [
@@ -107,6 +110,7 @@ to go
   viz-exploitation
   burn-resources
   regenerate
+  disaster
   tick
 
   if ticks = time-limit [
@@ -165,6 +169,15 @@ to setup-topo
       set wood-maxStandingStock 0
     ]
   ]
+  ask patches with [land? = true] [
+    ifelse elevation < 1100 [
+      set fire-return-rate 3 + random 26
+    ]
+    [
+      set fire-return-rate round (elevation - 1100) * 171 / 300 + 3 + random 26
+    ]
+    set time-since-fire random fire-return-rate
+  ]
 end
 
 to setup-communities
@@ -202,6 +215,7 @@ to setup-communities
         set wood-for-clay 0
         set workdays population * active-percentage / 100 * 365
         set food-workdays population * active-percentage / 100 * agricultural-days
+        set grain-per-grain-factor grain-per-grain-yield / (grain-per-grain-yield - 1)
       ]
     ]
   ]
@@ -309,7 +323,8 @@ to exploit-resources
     let wood-from-the-field 0
     let sorted-patches sort-on [(- food-fertility) / (item position homebase in-range-of claimed-cost)] candidate-patches ; communities strive for the best food / walking cost ratio
     let index 0
-    while [food-stock < food-requirement and any? candidate-patches with [food-fertility > 0] and food-workdays > 0] [ ; 1. still resource required, 2. still patches with resource, 3. still workdays left
+    let security-factor 1 + random-float 1 ;; Goodchild p. 277: farming communities keep a supply of 1-2 years of produce to compensate for bad harvests.
+    while [food-stock < food-requirement * security-factor * grain-per-grain-factor and any? candidate-patches with [food-fertility > 0] and food-workdays > 0] [ ; 1. still resource required, 2. still patches with resource, 3. still workdays left
       let target item index sorted-patches
       ask target [
         set food-effort item position homebase in-range-of claimed-cost
@@ -393,8 +408,8 @@ to exploit-resources
 end ;; TBI: less strict switching between land use types.
 
 to burn-resources ;; every tick communities use (part of) available food, clay and wood to sustain themselves
-  ask communities [
-    set food-stock food-stock - food-requirement ;; possible to go below 0, so it can be corrected the following  year
+  ask communities [;; possible to go below 0, so it can be corrected the following  year
+    set food-stock food-stock / grain-per-grain-factor - food-requirement ;; portion  of wheat is removed as seed for next year.
     set wood-stock wood-stock - wood-requirement - wood-for-clay ;; clay is only exploited after wood, so additional wood is cut the next year.
     set clay-stock clay-stock - clay-requirement
   ]
@@ -461,6 +476,19 @@ ifelse landuse-visualization [
   ]
 end
 
+to disaster
+  ;; Forest fires
+  ask patches with [wood? = true and time-since-fire > fire-return-rate] [
+    set wood-standingStock 0
+    set wood-age 0
+    set time-since-fire 0
+    set pcolor orange
+  ]
+
+
+end
+
+
 to wood-updateStandingStock
   if wood? = true [  ;; only patches that can still grow wood (e.g. not clay quarries) regrow wood
     ifelse wood-standingStock < wood-maxStandingStock [
@@ -470,6 +498,7 @@ to wood-updateStandingStock
       set wood-standingStock wood-maxStandingStock
     ]
     set wood-age wood-age + 1
+    set time-since-fire time-since-fire + 1
   ]
 end
 @#$#@#$#@
@@ -851,6 +880,21 @@ kgs-wood-per-kg-clay
 0.05
 1
 NIL
+HORIZONTAL
+
+SLIDER
+0
+282
+170
+315
+grain-per-grain-yield
+grain-per-grain-yield
+2
+6
+4.0
+0.5
+1
+kg/kg
 HORIZONTAL
 
 @#$#@#$#@
