@@ -58,7 +58,7 @@ patches-own [
   in-range-of            ;; list of communities that could potentially make use of this patch for agriculture or forestry
   claimed-cost           ;; walking time cost from community to its claimed patches in same order as "claimed" list
   fire-return-rate       ;; number of ticks before fire should return
-  time-since-fire        ;; number of ticks since last forest fire
+  time-since-fire        ;; number of ticks since last forest fire, used to test fire functionality
 ]
 
 communities-own [
@@ -477,14 +477,40 @@ ifelse landuse-visualization [
 end
 
 to disaster
-  ;; Forest fires
-  ask patches with [wood? = true and time-since-fire > fire-return-rate] [
-    set wood-standingStock 0
-    set wood-age 0
-    set time-since-fire 0
-    set pcolor orange
+  ;; Forest fire: ignition
+  let drought random-float 1
+  ask patches with [wood-standingStock > 0.72] [ ;; minimum value necessary for fire ignition: 500 kg/ha (see Seidl et al. 2014) / 695 kg/m³
+    let p-base 1 / (fire-return-rate * 4) ;; mean fire size in Turkey according to effis data 1980-2016.
+    let odds-ignition p-base / (1 - p-base) * drought
+    if odds-ignition / (1 + odds-ignition) > random-float 1 [
+      set wood-standingStock 0
+      set wood-age 0
+      set time-since-fire 0
+      set pcolor orange
+    ]
   ]
-
+;  ;; Forest fire: spread
+;  ask patches with [time-since-fire = 0] [
+;    let fire-size 1
+;    let max-fire-size -4 * log (1 - random-float 1) 10 ;; again using mean fire size Turkey
+;  ]
+;
+;    while fire-size < max-fire-size [
+;      ask patches with [time-since-fire = 0]
+;      set fire-size fire-size + 1
+;    ]
+;
+;
+;  foreach fire-initial-locations [
+;    firepatch -> ask firepatch [
+;      let fire-size 0
+;      ask neighbors4 with [wood-standingStock > 0.72][
+;        if random-float 1 > 0.25 [
+;
+;        ]
+;      ]
+;    ]
+;  ]
 
 end
 
