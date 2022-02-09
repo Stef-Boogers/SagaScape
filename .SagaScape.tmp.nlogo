@@ -33,6 +33,8 @@ globals [
   walkingTime-raster         ; dataset with Tobler walking time precalculated
   waterBodies-raster         ; dataset with rivers and lakes
   regeneration-reserve       ; dummy value necessary for initializing agricultural regeneration
+  burn-size                  ; required variable for keeping track of fire sizes
+  bad-harvest-modifier       ; factor to account for occasional bad harvests
 ]
 
 breed [communities community]
@@ -59,6 +61,7 @@ patches-own [
   claimed-cost           ;; walking time cost from community to its claimed patches in same order as "claimed" list
   fire-return-rate       ;; number of ticks before fire should return
   time-since-fire        ;; number of ticks since last forest fire, used to test fire functionality
+  time-since-abandonment ;; number of ticks since last use for agriculture (after a certain amount, convert back to forest)
 ]
 
 communities-own [
@@ -178,6 +181,7 @@ to setup-topo
     ]
     set time-since-fire random fire-return-rate
   ]
+  set burn-size []
 end
 
 to setup-communities
@@ -266,6 +270,7 @@ to setup-resources ;; already included in GIS step that wood or food cannot grow
       set food? true
       set wood-age 200 + random 200 ;; all non-settled patches are more or less mature forest at the start
       set food-fertility gis:raster-value fertility-raster pxcor (max-pycor - pycor)
+      set time-since-abandonment 0
     ]
     [
       set wood-maxStandingStock 0 ;; TBI: if community ever dies, reset wood-maxStandingStock
@@ -295,6 +300,7 @@ to setup-resources ;; already included in GIS step that wood or food cannot grow
       set wood-age 0
     ]
   ]
+  set bad-harvest-modifier 1
 end
 
 to setup-regeneration ;; Procedure required to properly initialize fertility decline and restoration.
@@ -335,6 +341,7 @@ to exploit-resources
         set wood-age 0
         set wood? false ;; assumption that when exploited for food, fields don't regenerate wood.
         set food? true
+        set time-since-abandonment 0
       ]
       set index index + 1
       set food-stock food-stock + food-exploited
@@ -343,6 +350,7 @@ to exploit-resources
       set food-workdays food-workdays - 42 - 42 * 2 * food-effort / 10 ; see Goodchild 2007 p. 301: 42 mandays per ha per annum. Add to this the amount of workdays spent on migrating back and forth. (no. of trips * time back and forth per trip / hours of work per day (assumed 10))
       set workdays workdays - 42 - 42 * 2 * food-effort / 10
     ]
+    set food-stock food-stock * bad-harvest-modifier
   ]
 
   ask communities [
@@ -418,7 +426,8 @@ end
 
 to regenerate
   ask patches [
-    if food? = true [  ;; only patches that can still grow food (e.g. not clay quarries) regrow food
+    if food? = true and wood? = false [ ;; only patches that can still grow food (e.g. not clay quarries) regrow food
+      set time-since-abandonment time-since-abandonment + 1
       if food-fertility < original-food-value [
         ifelse food-fertility > 0 [
           let food-fertility-regeneration (1 - food-fertility / original-food-value) / (1 / original-food-value + growth-rate / (food-fertility * (1 - growth-rate)))
@@ -430,8 +439,6 @@ to regenerate
       ]
     ]
   ]
-
-
   ask patches [
     wood-updateStandingStock
   ]
@@ -439,6 +446,7 @@ to regenerate
     set workdays population * active-percentage / 100 * 365
     set food-workdays population * active-percentage / 100 * agricultural-days
   ]
+  set bad-harvest-modifier 1
 end
 
 to viz-exploitation
@@ -478,44 +486,48 @@ end
 
 to disaster
   ;; Forest fire: ignition
+  let fire-initial-patches patch-set []
   let drought random-float 1
   ask patches with [wood-standingStock > 0.72] [ ;; minimum value necessary for fire ignition: 500 kg/ha (see Seidl et al. 2014) / 695 kg/m³
     let p-base 1 / (fire-return-rate * 4) ;; mean fire size in Turkey according to effis data 1980-2016.
-    let odds-ignition p-base / (1 - p-base) * drought
+    let odds-ignition p-base / (1 - p-base) * drought ; some years are drier than others, resulting in higher fire incidence.
     if odds-ignition / (1 + odds-ignition) > random-float 1 [
       set wood-standingStock 0
       set wood-age 0
       set time-since-fire 0
       set pcolor orange
+      set fire-initial-patches (patch-set self fire-initial-patches)
     ]
   ]
-;  ;; Forest fire: spread
-  ask patches with [time-since-fire = 0] [
-    let fire-size 1
-    let max-fire-size -4 * log (1 - random-float 1) 10 ;; again using mean fire size Turkey
-  ]
 
-    while fire-size < max-fire-size [
-      ask patches with [time-since-fire = 0]
-      set fire-size fire-size + 1
-    ]
-
-
-  foreach fire-initial-locations [
-    firepatch -> ask firepatch [
-      let fire-size 0
-      ask neighbors4 with [wood-standingStock > 0.72][
-        if random-float 1 > 0.25 [
-
+  ;; Forest fire: spread
+  ask fire-initial-patches [
+    let max-fire-size -4 * log (1 - random-float 1) 10 ;; again using mean fire size Turkey (about 4 ha)
+    if max-fire-size > 1 [ ;; save time by only evaluating spread when fire is larger than 1 pixel.
+      let patches-burned (patch-set self)
+      while [count patches-burned <= max-fire-size and any? peripheral-wooded-patches (patches-burned) and random-float 1 > 0.1][
+        let newly-burnt-patch one-of peripheral-wooded-patches (patches-burned)
+        ask newly-burnt-patch [
+          set wood-standingStock 0
+          set wood-age 0
+          set time-since-fire 0
+          set pcolor orange
         ]
+        set patches-burned (patch-set patches-burned newly-burnt-patch )
       ]
+      set burn-size sentence burn-size count patches-burned ;; used to check on fire sizes
     ]
+  ]
+  ;; Bad harvest (same effect as postharvest loss; Goodchild: 30%)
+  if random-poisson (1 / (1 + bad-harvest-interval) > 0 [
+      set bad-harvest-modifier 0.5 ; assumed that a bad harvest is equivalent to a loss of half the stock of crops belonging to a community
   ]
 
 end
 
 
 to wood-updateStandingStock
+  if time-since-abandonment > 4 [set wood? true]
   if wood? = true [  ;; only patches that can still grow wood (e.g. not clay quarries) regrow wood
     ifelse wood-standingStock < wood-maxStandingStock [
      set wood-standingStock wood-rico * exp(wood-power * wood-age)
@@ -527,6 +539,21 @@ to wood-updateStandingStock
     set time-since-fire time-since-fire + 1
   ]
 end
+
+to-report peripheral-wooded-patches [central-patches] ;; procedure to report a patchset of wooded neighbor4 patches surrounding the central lump of patches. Have to be continuous.
+  let periphery patch-set []
+  ask central-patches [
+    set periphery patch-set [neighbors4] of central-patches
+    set periphery periphery with [wood-standingStock > 0.72]
+  ]
+  report periphery
+end
+
+
+
+
+
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 173
@@ -921,6 +948,21 @@ grain-per-grain-yield
 0.5
 1
 kg/kg
+HORIZONTAL
+
+SLIDER
+0
+450
+173
+483
+bad-harvest-interval
+bad-harvest-interval
+1
+10
+2.0
+1
+1
+year
 HORIZONTAL
 
 @#$#@#$#@
