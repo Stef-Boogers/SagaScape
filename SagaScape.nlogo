@@ -28,7 +28,8 @@ globals [
   maxStandingStock-raster    ; maximum forest standing stock dataset
   rico-raster                ; dataset for calibrating forest growth function
   power-raster               ; dataset for calibrating forest growth function
-  IA-sites                   ; dataset with Iron Age sites from area of Sagalassos
+  sites                      ; dataset with archaeological sites from area of Sagalassos
+  start-date                 ; start dates of archaeological sites
   clay-raster                ; dataset with clay quantities calculated from ISRIC data
   walkingTime-raster         ; dataset with Tobler walking time precalculated
   waterBodies-raster         ; dataset with rivers and lakes
@@ -108,13 +109,18 @@ to setup
 end
 
 to go
-  ;add-sites
   exploit-resources
   viz-exploitation
   burn-resources
   regenerate
   disaster
   tick
+  if ticks = 900 [;;;; add Achaemenid sites
+    add-sites-ACH
+  ]
+  if ticks = 1300 [;;;; add Hellenistic sites
+    add-sites-HELL
+  ]
 
   if ticks = time-limit [
     stop
@@ -185,16 +191,17 @@ to setup-topo
 end
 
 to setup-communities
-
-  set IA-sites gis:load-dataset "/data/Iron Age sites.shp"
+  set sites gis:load-dataset "/data/Iron Age sites.shp" ;; to be replaced with "sagascape-sites.shp" file
   let valid false
 
-  foreach gis:property-names IA-sites [
+  foreach gis:property-names sites [
     property-name ->
     if (property-name = "SITE")[ set valid true ]
   ]
 
-  foreach gis:feature-list-of IA-sites [
+;;TBI: add conditional of Start = IA
+
+  foreach gis:feature-list-of sites [
     site-coord ->
     let coordinates gis:location-of (first (first (gis:vertex-lists-of site-coord)))
     let long item 0 coordinates
@@ -317,7 +324,12 @@ to setup-regeneration ;; Procedure required to properly initialize fertility dec
   ]
 end
 
-to add-sites ;; TBI: periodically adding sites (both from settlement data and random site distribution)
+to add-sites-ACH
+  ; add sites with Start = ACH
+end
+
+to add-sites-HELL
+  ; add sites with Start = HELL
 end
 
 
