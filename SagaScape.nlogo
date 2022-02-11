@@ -19,6 +19,7 @@ extensions [
   gis
   palette
   nw
+  csv
 ]
 
 globals [
@@ -103,7 +104,7 @@ inactive-communities-own [ ; copy of communitities-breed to put communities that
   total-clay-effort
   site-name
   candidate-patches
-  gain-per-grain-factor
+  grain-per-grain-factor
   settlement-type
   start-period
 ]
@@ -140,10 +141,10 @@ to go
   disaster
   tick
 
-  if ticks = 450 [;;;; add Achaemenid sites
+  if ticks = 450 [;;;; add Achaemenid sites at 450
     add-sites-ACH
   ]
-  if ticks = 650 [;;;; add Hellenistic sites
+  if ticks = 650 [;;;; add Hellenistic sites at 650
     add-sites-HELL
   ]
 
@@ -366,6 +367,7 @@ to add-sites-ACH
   ; add sites with Start = ACH
   ask inactive-communities with [start-period = "ACH" ] [
     set breed communities
+    set shape "house"
     set size sqrt (population / 5)
     ask patch-here [
       set wood-maxStandingStock 0 ;; TBI: if community ever dies, reset wood-maxStandingStock
@@ -381,6 +383,7 @@ to add-sites-HELL
   ; add sites with Start = HELL
   ask inactive-communities with [start-period = "HELL" ] [
     set breed communities
+    set shape "house"
     set size sqrt (population / 5)
     ask patch-here [
       set wood-maxStandingStock 0 ;; TBI: if community ever dies, reset wood-maxStandingStock
@@ -417,10 +420,16 @@ to exploit-resources
       ]
       set index index + 1
       set food-stock food-stock + food-exploited
-      set wood-stock wood-stock + wood-from-the-field
       set total-food-effort total-food-effort + food-effort
       set food-workdays food-workdays - 42 - 42 * 2 * food-effort / 10 ; see Goodchild 2007 p. 301: 42 mandays per ha per annum. Add to this the amount of workdays spent on migrating back and forth. (no. of trips * time back and forth per trip / hours of work per day (assumed 10))
       set workdays workdays - 42 - 42 * 2 * food-effort / 10
+      if wood-from-the-field > 0 [
+        set wood-stock wood-stock + wood-from-the-field
+        set total-wood-effort total-wood-effort + food-effort ; wood from the field needs to be collected as well.
+        let head-load (max list (random-normal 29.21 14.14) 4.5) / 695;; see Amutabi Kefa et al. 2018 p. 4. Converted to m³ from kg at MC 30%.
+        let head-load-gathering-time 49 ; 49 hrs per m³ of wood gathering. See MSc thesis Katie Preston p. 30.
+        let workdays-until-deforested wood-from-the-field / head-load * ((2 * food-effort - 2) + head-load * head-load-gathering-time ) / 10 ;; no. of trips * (time back and forth per trip (minus the trips already spent on going to perform agriculture))+ time spent gathering 1 HL) / hours of work per day (assumed 10)
+      ]
     ]
     set food-stock food-stock * bad-harvest-modifier
   ]
@@ -476,16 +485,22 @@ to exploit-resources
       ]
       set clay-stock clay-stock + clay-exploited
       set total-clay-effort total-clay-effort + clay-effort
-      set wood-stock wood-stock + wood-from-the-field
       set wood-for-clay wood-for-clay + clay-exploited * kgs-wood-per-kg-clay ;; Janssen et al. 2017: 2 - 5 MJ per kg clay required. Further used energy content of dried, yet still moist wood (11.4 - 13.86 MJ/kg).
       let workdays-until-quarried 0.193 * clay-exploited / 1.9 ;; Delaine 1992 p. 182: 0.13 days/m³ to dig clay and 0.063 days/m³ to fill baskets.
       let baskets clay-exploited / 0.05 ;; number of 50 kg baskets needed to haul
       let workdays-hauling baskets * clay-effort * 2 * 6.5 / 10 ;; Going back and forth between quarry and community, taking into account slowing factor of 6.5 (calculated from Delaine 1992) bc of load and 10 hr-working day.
       let workdays-until-fired 4.5 / 0.980 * clay-exploited;; Janssen: 4-5 days per firing cycle of 360 - 1600 kgs of clay vessels. Only actual firing taken into account, no throwing etc.
       set workdays workdays - workdays-until-quarried - workdays-hauling - workdays-until-fired
+      if wood-from-the-field > 0 [
+        set wood-stock wood-stock + wood-from-the-field
+        set total-wood-effort total-wood-effort + clay-effort ; wood from the field needs to be collected as well.
+        let head-load (max list (random-normal 29.21 14.14) 4.5) / 695;; see Amutabi Kefa et al. 2018 p. 4. Converted to m³ from kg at MC 30%.
+        let head-load-gathering-time 49 ; 49 hrs per m³ of wood gathering. See MSc thesis Katie Preston p. 30.
+        let workdays-until-deforested wood-from-the-field / head-load * ((2 * clay-effort - 2) + head-load * head-load-gathering-time ) / 10 ;; no. of trips * (time back and forth per trip (minus the trips already spent on going to perform clay excavation))+ time spent gathering 1 HL) / hours of work per day (assumed 10)
+      ]
     ]
   ]
-end ;; TBI: less strict switching between land use types.
+end
 
 to burn-resources ;; every tick communities use (part of) available food, clay and wood to sustain themselves
   ask communities [;; possible to go below 0, so it can be corrected the following  year
@@ -599,7 +614,7 @@ end
 
 
 to wood-updateStandingStock
-  if time-since-abandonment > 4 [set wood? true]
+  if time-since-abandonment > forest-regrowth-lag [set wood? true]
   if wood? = true [  ;; only patches that can still grow wood (e.g. not clay quarries) regrow wood
     ifelse wood-standingStock < wood-maxStandingStock [
      set wood-standingStock wood-rico * exp(wood-power * wood-age)
@@ -621,7 +636,9 @@ to-report peripheral-wooded-patches [central-patches] ;; procedure to report a p
   report periphery
 end
 
-
+;to-report save-inrangeof
+;  csv:to-file "inrangeof_50.csv" [[(list pxcor pycor in-range-of)] of patches] ";"
+;end
 
 
 @#$#@#$#@
@@ -695,22 +712,22 @@ territory
 territory
 0
 200
-51.0
+50.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
+0
+458
 172
-419
-344
-452
+491
 time-limit
 time-limit
 0
 3000
-2000.0
+900.0
 1
 1
 NIL
@@ -732,9 +749,9 @@ NIL
 HORIZONTAL
 
 SWITCH
-343
+810
 419
-513
+980
 452
 landuse-visualization
 landuse-visualization
@@ -780,8 +797,8 @@ SLIDER
 wood-demand-pc
 wood-demand-pc
 1.15
-1.40
-1.4
+5
+2.5
 0.05
 1
 kg/day
@@ -875,6 +892,21 @@ bad-harvest-interval
 1
 1
 year
+HORIZONTAL
+
+SLIDER
+0
+411
+174
+444
+forest-regrowth-lag
+forest-regrowth-lag
+3
+10
+5.0
+1
+1
+years
 HORIZONTAL
 
 @#$#@#$#@
