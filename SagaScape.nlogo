@@ -255,7 +255,7 @@ to setup-communities
         set total-wood-effort 0
         set total-clay-effort 0
         set food-requirement population * 365 * food-demand-pc / 1000 ;; conversion to tonnes
-        set wood-requirement population * 365 * (wood-demand-pc + 0.0276 * [elevation] of patch-here / 1000) / 695 ;; conversion to m³, considering average density of wood in Saga at MC of 30% is about 695 kg/m³. Also taking altitude of settlent into account (Boogers et al. in press).
+        set wood-requirement population * (365 * wood-demand-pc  + 0.0661 * [elevation] of patch-here) / 695 ;; conversion to m³, considering average density of wood in Saga at MC of 30% is about 695 kg/m³. Also taking altitude of settlent into account (Boogers et al. in press).
         set clay-requirement population * clay-demand-pc / 1000;; more or less a random number for now, in tons
         set wood-for-clay 0
         set workdays population * active-percentage / 100 * 365
@@ -428,7 +428,8 @@ to exploit-resources
         set total-wood-effort total-wood-effort + food-effort ; wood from the field needs to be collected as well.
         let head-load (max list (random-normal 29.21 14.14) 4.5) / 695;; see Amutabi Kefa et al. 2018 p. 4. Converted to m³ from kg at MC 30%.
         let head-load-gathering-time 49 ; 49 hrs per m³ of wood gathering. See MSc thesis Katie Preston p. 30.
-        let workdays-until-deforested wood-from-the-field / head-load * ((2 * food-effort - 2) + head-load * head-load-gathering-time ) / 10 ;; no. of trips * (time back and forth per trip (minus the trips already spent on going to perform agriculture))+ time spent gathering 1 HL) / hours of work per day (assumed 10)
+        let workdays-until-deforested (wood-from-the-field / head-load - 2) * (2 * food-effort + head-load * head-load-gathering-time ) / 10 ;; no. of trips * (time back and forth per trip (minus the trips already spent on going to perform agriculture))+ time spent gathering 1 HL) / hours of work per day (assumed 10)
+        set workdays workdays - workdays-until-deforested
       ]
     ]
     set food-stock food-stock * bad-harvest-modifier
@@ -485,7 +486,7 @@ to exploit-resources
       ]
       set clay-stock clay-stock + clay-exploited
       set total-clay-effort total-clay-effort + clay-effort
-      set wood-for-clay wood-for-clay + clay-exploited * kgs-wood-per-kg-clay ;; Janssen et al. 2017: 2 - 5 MJ per kg clay required. Further used energy content of dried, yet still moist wood (11.4 - 13.86 MJ/kg).
+      set wood-for-clay wood-for-clay + clay-exploited * kgs-wood-per-kg-clay / 695 ;; Janssen et al. 2017: 2 - 5 MJ per kg clay required. Further used energy content of dried, yet still moist wood (11.4 - 13.86 MJ/kg).
       let workdays-until-quarried 0.193 * clay-exploited / 1.9 ;; Delaine 1992 p. 182: 0.13 days/m³ to dig clay and 0.063 days/m³ to fill baskets.
       let baskets clay-exploited / 0.05 ;; number of 50 kg baskets needed to haul
       let workdays-hauling baskets * clay-effort * 2 * 6.5 / 10 ;; Going back and forth between quarry and community, taking into account slowing factor of 6.5 (calculated from Delaine 1992) bc of load and 10 hr-working day.
@@ -496,7 +497,8 @@ to exploit-resources
         set total-wood-effort total-wood-effort + clay-effort ; wood from the field needs to be collected as well.
         let head-load (max list (random-normal 29.21 14.14) 4.5) / 695;; see Amutabi Kefa et al. 2018 p. 4. Converted to m³ from kg at MC 30%.
         let head-load-gathering-time 49 ; 49 hrs per m³ of wood gathering. See MSc thesis Katie Preston p. 30.
-        let workdays-until-deforested wood-from-the-field / head-load * ((2 * clay-effort - 2) + head-load * head-load-gathering-time ) / 10 ;; no. of trips * (time back and forth per trip (minus the trips already spent on going to perform clay excavation))+ time spent gathering 1 HL) / hours of work per day (assumed 10)
+        let workdays-until-deforested (wood-from-the-field / head-load - 2) * (2 * clay-effort + head-load * head-load-gathering-time ) / 10 ;; no. of trips * (time back and forth per trip (minus the trips already spent on going to perform clay excavation))+ time spent gathering 1 HL) / hours of work per day (assumed 10)
+        set workdays workdays - workdays-until-deforested
       ]
     ]
   ]
@@ -636,11 +638,13 @@ to-report peripheral-wooded-patches [central-patches] ;; procedure to report a p
   report periphery
 end
 
-;to-report save-inrangeof
-;  csv:to-file "inrangeof_50.csv" [[(list pxcor pycor in-range-of)] of patches] ";"
+;to-report save-ranges-50
+;  csv:to-file "data/ranges_50.csv" [(list pxcor pycor in-range-of claimed-cost)] of patches
 ;end
 
-
+;to-report save-ranges-200
+;  csv:to-file "data/ranges_100.csv" [(list pxcor pycor in-range-of claimed-cost)] of patches
+;end
 @#$#@#$#@
 GRAPHICS-WINDOW
 173
@@ -768,7 +772,7 @@ clay-threshold
 clay-threshold
 0.3
 0.5
-0.5
+0.35
 0.05
 1
 tonnes per m³
@@ -796,9 +800,9 @@ SLIDER
 116
 wood-demand-pc
 wood-demand-pc
-1.15
+1
 5
-2.5
+5.0
 0.05
 1
 kg/day
@@ -828,7 +832,7 @@ active-percentage
 active-percentage
 0
 100
-17.0
+25.0
 1
 1
 %
@@ -873,7 +877,7 @@ grain-per-grain-yield
 grain-per-grain-yield
 2
 6
-4.0
+3.0
 0.5
 1
 kg/kg
@@ -888,7 +892,7 @@ bad-harvest-interval
 bad-harvest-interval
 1
 10
-5.0
+6.0
 1
 1
 year
