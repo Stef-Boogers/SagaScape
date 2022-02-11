@@ -39,6 +39,7 @@ globals [
 ]
 
 breed [communities community]
+breed [inactive-communities inactive-community]
 breed [rangers ranger]
 
 patches-own [
@@ -82,6 +83,29 @@ communities-own [
   site-name           ;; value for site name if historical dataset is used
   candidate-patches   ;; patches that are within range of the community.
   grain-per-grain-factor ;; factor accounting for resowing loss.
+  settlement-type     ;; type of settlement. Determines amount of inhabitants
+  start-period        ;; determines when a settlement needs to spawn (IA: Iron Age at start, ACH: Achaemenid after 450 years, HELL: Hellenistic after 650 years.)
+]
+
+inactive-communities-own [ ; copy of communitities-breed to put communities that are yet to spawn (start-period hasn't arrived yet) on non-active.
+  population
+  workdays
+  food-workdays
+  food-requirement
+  wood-requirement
+  clay-requirement
+  wood-for-clay
+  food-stock
+  clay-stock
+  wood-stock
+  total-food-effort
+  total-wood-effort
+  total-clay-effort
+  site-name
+  candidate-patches
+  gain-per-grain-factor
+  settlement-type
+  start-period
 ]
 
 rangers-own [
@@ -102,7 +126,7 @@ to setup
   setup-topo
   setup-communities
   setup-least-cost-distances
-
+  initial-periodization
   setup-resources
   setup-regeneration
   reset-ticks
@@ -115,10 +139,11 @@ to go
   regenerate
   disaster
   tick
-  if ticks = 900 [;;;; add Achaemenid sites
+
+  if ticks = 450 [;;;; add Achaemenid sites
     add-sites-ACH
   ]
-  if ticks = 1300 [;;;; add Hellenistic sites
+  if ticks = 650 [;;;; add Hellenistic sites
     add-sites-HELL
   ]
 
@@ -175,6 +200,8 @@ to setup-topo
       set land? false
       set wood? false
       set food? false
+      set clay? false
+      set clay-quantity 0
       set wood-maxStandingStock 0
     ]
   ]
@@ -191,15 +218,13 @@ to setup-topo
 end
 
 to setup-communities
-  set sites gis:load-dataset "/data/Iron Age sites.shp" ;; to be replaced with "sagascape-sites.shp" file
+  set sites gis:load-dataset "/data/sagascape-sites-EPSG32636.shp"
   let valid false
 
   foreach gis:property-names sites [
     property-name ->
     if (property-name = "SITE")[ set valid true ]
   ]
-
-;;TBI: add conditional of Start = IA
 
   foreach gis:feature-list-of sites [
     site-coord ->
@@ -208,12 +233,20 @@ to setup-communities
     let lat item 1 coordinates
     if (valid) [
       let Site gis:property-value site-coord "Site"
+      let S-t gis:property-value site-coord "Type"
+      let S-p gis:property-value site-coord "Start"
       create-communities 1 [
         set shape "house"
-        set population round random-normal (number-households * household-size) (number-households / 2)
+        set settlement-type S-t
+        set population (ifelse-value
+          settlement-type = "hamlet" [round random-normal 50 10]
+          settlement-type = "village" [round random-normal 500 100]
+          settlement-type = "town" [round random-normal 1000 200]
+        )
         set size sqrt (population / 5)
         setxy long lat
         set site-name Site
+        set start-period S-p
         set food-stock 0
         set wood-stock 0
         set clay-stock 0
@@ -269,29 +302,34 @@ to setup-least-cost-distances ;; Every community calculates the least-cost pathw
   ]
 end
 
+to initial-periodization
+  ask communities with [start-period != "IA" ][
+    set breed inactive-communities
+  ]
+  ask inactive-communities [
+    set size 0
+  ]
+end
+
 to setup-resources ;; already included in GIS step that wood or food cannot grow on water.
   ask patches [
-    ifelse clay-quantity > clay-threshold * 10000 * 2  [set clay? true][set clay? false] ; clay-threshold is expressed in tons per m³ of soil while clay-quantity is expressed in tons per ha in the two uppermost m³ of soil.
     ifelse not any? communities-here [    ;; settled patches are not forested and not suited for agriculture
       set wood? true
       set food? true
       set wood-age 200 + random 200 ;; all non-settled patches are more or less mature forest at the start
       set food-fertility gis:raster-value fertility-raster pxcor (max-pycor - pycor)
       set time-since-abandonment 0
+      ifelse clay-quantity > clay-threshold * 10000 * 2  [set clay? true][set clay? false] ; clay-threshold is expressed in tons per m³ of soil while clay-quantity is expressed in tons per ha in the two uppermost m³ of soil.
     ]
     [
       set wood-maxStandingStock 0 ;; TBI: if community ever dies, reset wood-maxStandingStock
       set food-fertility 0
+      set clay? false
     ]
     wood-updateStandingStock
     set wood-standingStock min (list wood-standingStock wood-maxStandingStock)
 
   set original-food-value food-fertility
-  ]
-
-  ask patches with [any? communities-here or land? = false] [
-    set clay-quantity 0 ; patches located at a community or on water cannot be exploited for clay
-    set clay? false
   ]
 
   ;; Spinup procedure to account for forest loss and agricultural fields in previous period.
@@ -326,10 +364,32 @@ end
 
 to add-sites-ACH
   ; add sites with Start = ACH
+  ask inactive-communities with [start-period = "ACH" ] [
+    set breed communities
+    set size sqrt (population / 5)
+    ask patch-here [
+      set wood-maxStandingStock 0 ;; TBI: if community ever dies, reset wood-maxStandingStock
+      set food-fertility 0
+      set wood? false
+      set food? false
+      set clay? false
+    ]
+  ]
 end
 
 to add-sites-HELL
   ; add sites with Start = HELL
+  ask inactive-communities with [start-period = "HELL" ] [
+    set breed communities
+    set size sqrt (population / 5)
+    ask patch-here [
+      set wood-maxStandingStock 0 ;; TBI: if community ever dies, reset wood-maxStandingStock
+      set food-fertility 0
+      set wood? false
+      set food? false
+      set clay? false
+    ]
+  ]
 end
 
 
@@ -638,21 +698,6 @@ territory
 0
 200
 50.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-0
-179
-172
-212
-number-households
-number-households
-0
-500
-100.0
 1
 1
 NIL
