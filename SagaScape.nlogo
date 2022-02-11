@@ -625,7 +625,6 @@ end
 
 
 
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 173
@@ -728,21 +727,6 @@ regeneration-time
 1
 3
 3.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-0
-145
-172
-178
-household-size
-household-size
-1
-12
-6.0
 1
 1
 NIL
@@ -1016,7 +1000,7 @@ bad-harvest-interval
 bad-harvest-interval
 1
 10
-1.0
+5.0
 1
 1
 year
