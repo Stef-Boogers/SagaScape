@@ -624,7 +624,6 @@ end
 
 
 
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 173
@@ -689,14 +688,14 @@ NIL
 
 SLIDER
 0
-418
+346
 172
-451
+379
 territory
 territory
 0
 200
-50.0
+51.0
 1
 1
 NIL
@@ -719,9 +718,9 @@ HORIZONTAL
 
 SLIDER
 0
-313
-172
-346
+244
+171
+277
 regeneration-time
 regeneration-time
 1
@@ -731,38 +730,6 @@ regeneration-time
 1
 NIL
 HORIZONTAL
-
-PLOT
-515
-427
-979
-643
-Crops harvested [tons per year and household]
-Time
-NIL
-0.0
-10.0
-0.0
-2.0
-true
-true
-"" ""
-PENS
-"Community 0" 1.0 0 -16777216 true "" "plot [energy-stock / (population * ticks / 2)] of community 0"
-"Community 1" 1.0 0 -11221820 true "" "plot [energy-stock / (population * ticks / 2)] of community 1"
-"Community 2" 1.0 0 -10899396 true "" "plot [energy-stock / (population * ticks / 2)] of community 2"
-"Community 3" 1.0 0 -2674135 true "" "plot [energy-stock / (population * ticks / 2)] of community 3"
-"Community 4" 1.0 0 -7500403 true "" "plot [energy-stock / (population * ticks / 2)] of community 4"
-"Community 5" 1.0 0 -955883 true "" "plot [energy-stock / (population * ticks / 2)] of community 5"
-"Community 6" 1.0 0 -6459832 true "" "plot [energy-stock / (population * ticks / 2)] of community 6"
-"Community 7" 1.0 0 -1184463 true "" "plot [energy-stock / (population * ticks / 2)] of community 7"
-"Community 8" 1.0 0 -13840069 true "" "plot [energy-stock / (population * ticks / 2)] of community 8"
-"Community 9" 1.0 0 -14835848 true "" "plot [energy-stock / (population * ticks / 2)] of community 9"
-"Community 10" 1.0 0 -13791810 true "" "plot [energy-stock / (population * ticks / 2)] of community 10"
-"Community 11" 1.0 0 -13345367 true "" "plot [energy-stock / (population * ticks / 2)] of community 11"
-"Community 12" 1.0 0 -8630108 true "" "plot [energy-stock / (population * ticks / 2)] of community 12"
-"Community 13" 1.0 0 -5825686 true "" "plot [energy-stock / (population * ticks / 2)] of community 13"
-"Community 14" 1.0 0 -2064490 true "" "plot [energy-stock / (population * ticks / 2)] of community 14"
 
 SWITCH
 343
@@ -777,9 +744,9 @@ landuse-visualization
 
 SLIDER
 0
-381
+312
 172
-414
+345
 clay-threshold
 clay-threshold
 0.3
@@ -789,102 +756,6 @@ clay-threshold
 1
 tonnes per m³
 HORIZONTAL
-
-PLOT
-996
-12
-1490
-235
-Crops harvested per walking distance [tons per hour]
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-true
-"" ""
-PENS
-"Community 0" 1.0 0 -16777216 true "" "plot [energy-stock / (total-food-effort)] of community 0"
-"Community 1" 1.0 0 -7500403 true "" "plot [energy-stock / (total-food-effort)] of community 1"
-"Community 2" 1.0 0 -2674135 true "" "plot [energy-stock / (total-food-effort)] of community 2"
-"Community 3" 1.0 0 -955883 true "" "plot [energy-stock / (total-food-effort)] of community 3"
-"Community 4" 1.0 0 -6459832 true "" "plot [energy-stock / (total-food-effort)] of community 4"
-"Community 5" 1.0 0 -1184463 true "" "plot [energy-stock / (total-food-effort)] of community 5"
-"Community 6" 1.0 0 -10899396 true "" "plot [energy-stock / (total-food-effort)] of community 6"
-"Community 7" 1.0 0 -13840069 true "" "plot [energy-stock / (total-food-effort)] of community 7"
-"Community 8" 1.0 0 -14835848 true "" "plot [energy-stock / (total-food-effort)] of community 8"
-"Community 9" 1.0 0 -11221820 true "" "plot [energy-stock / (total-food-effort)] of community 9"
-"Community 10" 1.0 0 -13791810 true "" "plot [energy-stock / (total-food-effort)] of community 10"
-"Community 11" 1.0 0 -13345367 true "" "plot [energy-stock / (total-food-effort)] of community 11"
-"Community 12" 1.0 0 -8630108 true "" "plot [energy-stock / (total-food-effort)] of community 12"
-"Community 13" 1.0 0 -5825686 true "" "plot [energy-stock / (total-food-effort)] of community 13"
-"Community 14" 1.0 0 -2064490 true "" "plot [energy-stock / (total-food-effort)] of community 14"
-
-PLOT
-995
-243
-1490
-442
-Wood harvested per walking distance [m³  per hour]
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-true
-"" ""
-PENS
-"Community 0" 1.0 0 -16777216 true "" "plot [wood-stock / (total-wood-effort)] of community 0"
-"Community 1" 1.0 0 -7500403 true "" "plot [wood-stock / (total-wood-effort)] of community 1"
-"Community 2" 1.0 0 -2674135 true "" "plot [wood-stock / (total-wood-effort)] of community 2"
-"Community 3" 1.0 0 -955883 true "" "plot [wood-stock / (total-wood-effort)] of community 3"
-"Community 4" 1.0 0 -6459832 true "" "plot [wood-stock / (total-wood-effort)] of community 4"
-"Community 5" 1.0 0 -1184463 true "" "plot [wood-stock / (total-wood-effort)] of community 5"
-"Community 6" 1.0 0 -10899396 true "" "plot [wood-stock / (total-wood-effort)] of community 6"
-"Community 7" 1.0 0 -13840069 true "" "plot [wood-stock / (total-wood-effort)] of community 7"
-"Community 8" 1.0 0 -14835848 true "" "plot [wood-stock / (total-wood-effort)] of community 8"
-"Community 9" 1.0 0 -11221820 true "" "plot [wood-stock / (total-wood-effort)] of community 9"
-"Community 10" 1.0 0 -13791810 true "" "plot [wood-stock / (total-wood-effort)] of community 10"
-"Community 11" 1.0 0 -13345367 true "" "plot [wood-stock / (total-wood-effort)] of community 11"
-"Community 12" 1.0 0 -8630108 true "" "plot [wood-stock / (total-wood-effort)] of community 12"
-"Community 13" 1.0 0 -5825686 true "" "plot [wood-stock / (total-wood-effort)] of community 13"
-"Community 14" 1.0 0 -2064490 true "" "plot [wood-stock / (total-wood-effort)] of community 14"
-
-PLOT
-996
-451
-1491
-643
-Clay harvested per walking distance [kgs per hour]
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-true
-"" ""
-PENS
-"Community 0" 1.0 0 -16777216 true "" "plot [clay-stock / (total-clay-effort)] of community 0"
-"Community 1" 1.0 0 -7500403 true "" "plot [wood-stock / (total-wood-effort)] of community 1"
-"Community 2" 1.0 0 -2674135 true "" "plot [wood-stock / (total-wood-effort)] of community 2"
-"Community 3" 1.0 0 -955883 true "" "plot [wood-stock / (total-wood-effort)] of community 3"
-"Community 4" 1.0 0 -6459832 true "" "plot [wood-stock / (total-wood-effort)] of community 4"
-"Community 5" 1.0 0 -1184463 true "" "plot [wood-stock / (total-wood-effort)] of community 5"
-"Community 6" 1.0 0 -10899396 true "" "plot [wood-stock / (total-wood-effort)] of community 6"
-"Community 7" 1.0 0 -13840069 true "" "plot [wood-stock / (total-wood-effort)] of community 7"
-"Community 8" 1.0 0 -14835848 true "" "plot [wood-stock / (total-wood-effort)] of community 8"
-"Community 9" 1.0 0 -11221820 true "" "plot [wood-stock / (total-wood-effort)] of community 9"
-"Community 10" 1.0 0 -13791810 true "" "plot [wood-stock / (total-wood-effort)] of community 10"
-"Community 11" 1.0 0 -13345367 true "" "plot [wood-stock / (total-wood-effort)] of community 11"
-"Community 12" 1.0 0 -8630108 true "" "plot [wood-stock / (total-wood-effort)] of community 12"
-"Community 13" 1.0 0 -5825686 true "" "plot [wood-stock / (total-wood-effort)] of community 13"
-"Community 14" 1.0 0 -2064490 true "" "plot [wood-stock / (total-wood-effort)] of community 14"
 
 SLIDER
 0
@@ -933,9 +804,9 @@ HORIZONTAL
 
 SLIDER
 0
-213
+147
 172
-246
+180
 active-percentage
 active-percentage
 0
@@ -948,9 +819,9 @@ HORIZONTAL
 
 SLIDER
 0
-249
+180
 171
-282
+213
 agricultural-days
 agricultural-days
 120
@@ -963,9 +834,9 @@ HORIZONTAL
 
 SLIDER
 0
-347
+278
 172
-380
+311
 kgs-wood-per-kg-clay
 kgs-wood-per-kg-clay
 0.14
@@ -978,9 +849,9 @@ HORIZONTAL
 
 SLIDER
 0
-282
-170
-315
+213
+171
+246
 grain-per-grain-yield
 grain-per-grain-yield
 2
@@ -993,9 +864,9 @@ HORIZONTAL
 
 SLIDER
 0
-450
+378
 173
-483
+411
 bad-harvest-interval
 bad-harvest-interval
 1
