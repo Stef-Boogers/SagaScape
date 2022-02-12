@@ -5,21 +5,19 @@
 ;; = regular comment
 ;; TBI = To Be Implemented
 
-;; TBI: use table extension to setup when gis data has already been loaded in once (see https://www.jasss.org/20/1/3.html).
+;; TBI: use table extension to setup when gis data has already been loaded in once (see https://www.jasss.org/20/1/3.html). ALternative csv method is partially set up in setup-least-cost-distances procedure
 ;; TBI: set walking cost of lakes to high number, so they become obstacles. Rivers would probably have been crossed readily. Current version = only most western lake inaccessible bc other ones not in range.
-;; TBI: detailed settlement patterns with site sizes (no of household) & periodization
 ;; TBI: new forest growth function. Currently overshoots for some patches. Now solved using dirty fix.
-;; TBI: communities check whether to convert wood to charcoal or not (now use of charcoal always implicitly assumed)
-;; TBI: disturbances. Forest fires, bad harvests, depreciation of food-stock (Goodchild p. 278: up to 30%) etc.
+;; TBI: communities check whether to convert wood to charcoal or not (now use of charcoal always implicitly assumed).
 ;; TBI: depreciation of the woodstock? When fields are cleared for agriculture, the resulting woodstock is so massive that it takes years to get through.
-;; TBI: clay exploitation procedure with realistic values and inclusion of working hours per m³.
+;; TBI: clay exploitation procedure with realistic values.
 
 
 extensions [
   gis
   palette
   nw
-  csv
+  ;csv
 ]
 
 globals [
@@ -260,7 +258,7 @@ to setup-communities
         set wood-for-clay 0
         set workdays population * active-percentage / 100 * 365
         set food-workdays population * active-percentage / 100 * agricultural-days
-        set grain-per-grain-factor grain-per-grain-yield / (grain-per-grain-yield - 1)
+        set grain-per-grain-factor grain-per-grain-yield / (grain-per-grain-yield - 1) ; see Goodchild p. 252: grain-per-grain yield falls around 6:1.
       ]
     ]
   ]
@@ -301,6 +299,14 @@ to setup-least-cost-distances ;; Every community calculates the least-cost pathw
     ask rangers [die] ;; Rangers don't have any other function in the model, so they are removed
     set candidate-patches patches with [member? claim in-range-of and any? communities-here = false]
   ]
+
+;  let csv csv:from-file "data/ranges_50.csv"
+;  (foreach csv
+;    [ [entry] -> ask patch item 0 entry item 1 entry [
+;      set in-range-of item 2 entry
+;      set claimed-cost item 3 entry
+;      ]
+;  ]) ;;almost correct, only need to ignore quotation marks.
 end
 
 to initial-periodization
@@ -318,7 +324,8 @@ to setup-resources ;; already included in GIS step that wood or food cannot grow
       set wood? true
       set food? true
       set wood-age 200 + random 200 ;; all non-settled patches are more or less mature forest at the start
-      set food-fertility gis:raster-value fertility-raster pxcor (max-pycor - pycor)
+      let fertility gis:raster-value fertility-raster pxcor (max-pycor - pycor);; PhD Maarten Van Loo p. 50: highest modelled fertility in past = 2.8 tonnes per ha. Modern data is overestimation, therefore rescaled.
+      set food-fertility adapted-fertility (fertility)
       set time-since-abandonment 0
       ifelse clay-quantity > clay-threshold * 10000 * 2  [set clay? true][set clay? false] ; clay-threshold is expressed in tons per m³ of soil while clay-quantity is expressed in tons per ha in the two uppermost m³ of soil.
     ]
@@ -532,8 +539,8 @@ to regenerate
     wood-updateStandingStock
   ]
   ask communities [
-    set workdays population * active-percentage / 100 * 365
-    set food-workdays population * active-percentage / 100 * agricultural-days
+    set workdays population * active-percentage / 100 * 365 + ifelse-value (workdays < 0)[workdays][0]
+    set food-workdays population * active-percentage / 100 * agricultural-days + ifelse-value (agricultural-days < 0)[agricultural-days][0] ; no reserves from previous year are taken along, but debts are.
   ]
   set bad-harvest-modifier 1
 end
@@ -638,6 +645,16 @@ to-report peripheral-wooded-patches [central-patches] ;; procedure to report a p
   report periphery
 end
 
+to-report adapted-fertility [fertility]
+  let result 0
+  set result (ifelse-value
+    fertility = 0 [0]
+    fertility > 3.5 [3.5] ;; phd Maarten van Loo p. 94: model overestimates. 3.5 taken as cutoff.
+    [fertility * 2.8 / 3.5] ;; phd Maarten van Loo p. 50: 2.8 highest yield modelled in sedimentation model.
+    )
+  report result
+end
+
 ;to-report save-ranges-50
 ;  csv:to-file "data/ranges_50.csv" [(list pxcor pycor in-range-of claimed-cost)] of patches
 ;end
@@ -731,7 +748,7 @@ time-limit
 time-limit
 0
 3000
-900.0
+1000.0
 1
 1
 NIL
@@ -877,7 +894,7 @@ grain-per-grain-yield
 grain-per-grain-yield
 2
 6
-3.0
+6.0
 0.5
 1
 kg/kg
@@ -912,6 +929,24 @@ forest-regrowth-lag
 1
 years
 HORIZONTAL
+
+PLOT
+1111
+117
+1460
+399
+plot 1
+NIL
+NIL
+0.0
+3.0
+0.0
+10.0
+false
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "histogram [original-food-fertility] of patches"
 
 @#$#@#$#@
 ## WHAT IS IT?
