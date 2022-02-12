@@ -84,6 +84,9 @@ communities-own [
   grain-per-grain-factor ;; factor accounting for resowing loss.
   settlement-type     ;; type of settlement. Determines amount of inhabitants
   start-period        ;; determines when a settlement needs to spawn (IA: Iron Age at start, ACH: Achaemenid after 450 years, HELL: Hellenistic after 650 years.)
+  cumulative-food-stock ;; for setting out over time later on.
+  cumulative-wood-stock
+  cumulative-clay-stock
 ]
 
 inactive-communities-own [ ; copy of communitities-breed to put communities that are yet to spawn (start-period hasn't arrived yet) on non-active.
@@ -105,6 +108,9 @@ inactive-communities-own [ ; copy of communitities-breed to put communities that
   grain-per-grain-factor
   settlement-type
   start-period
+  cumulative-food-stock ;; for setting out over time later on.
+  cumulative-wood-stock
+  cumulative-clay-stock
 ]
 
 rangers-own [
@@ -133,7 +139,7 @@ end
 
 to go
   exploit-resources
-  viz-exploitation
+  ;viz-exploitation
   burn-resources
   regenerate
   disaster
@@ -249,6 +255,9 @@ to setup-communities
         set food-stock 0
         set wood-stock 0
         set clay-stock 0
+        set cumulative-food-stock 0
+        set cumulative-wood-stock 0
+        set cumulative-clay-stock 0
         set total-food-effort 0
         set total-wood-effort 0
         set total-clay-effort 0
@@ -493,7 +502,7 @@ to exploit-resources
       ]
       set clay-stock clay-stock + clay-exploited
       set total-clay-effort total-clay-effort + clay-effort
-      set wood-for-clay wood-for-clay + clay-exploited * kgs-wood-per-kg-clay / 695 ;; Janssen et al. 2017: 2 - 5 MJ per kg clay required. Further used energy content of dried, yet still moist wood (11.4 - 13.86 MJ/kg).
+      set wood-for-clay wood-for-clay + clay-exploited * kgs-wood-per-kg-clay * 1000 / 695 ;; Janssen et al. 2017: 2 - 5 MJ per kg clay required. Further used energy content of dried, yet still moist wood (11.4 - 13.86 MJ/kg).
       let workdays-until-quarried 0.193 * clay-exploited / 1.9 ;; Delaine 1992 p. 182: 0.13 days/m³ to dig clay and 0.063 days/m³ to fill baskets.
       let baskets clay-exploited / 0.05 ;; number of 50 kg baskets needed to haul
       let workdays-hauling baskets * clay-effort * 2 * 6.5 / 10 ;; Going back and forth between quarry and community, taking into account slowing factor of 6.5 (calculated from Delaine 1992) bc of load and 10 hr-working day.
@@ -513,9 +522,15 @@ end
 
 to burn-resources ;; every tick communities use (part of) available food, clay and wood to sustain themselves
   ask communities [;; possible to go below 0, so it can be corrected the following  year
+    set cumulative-food-stock cumulative-food-stock + food-stock ;; for noticing trends later on.
+    set cumulative-wood-stock cumulative-wood-stock + wood-stock
+    set cumulative-clay-stock cumulative-clay-stock + clay-stock
+
     set food-stock food-stock / grain-per-grain-factor - food-requirement ;; portion  of wheat is removed as seed for next year.
     set wood-stock wood-stock - wood-requirement - wood-for-clay ;; clay is only exploited after wood, so additional wood is cut the next year.
     set clay-stock clay-stock - clay-requirement
+
+
   ]
 
 end
@@ -929,24 +944,6 @@ forest-regrowth-lag
 1
 years
 HORIZONTAL
-
-PLOT
-1111
-117
-1460
-399
-plot 1
-NIL
-NIL
-0.0
-3.0
-0.0
-10.0
-false
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "histogram [original-food-fertility] of patches"
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1421,6 +1418,68 @@ NetLogo 6.1.1
       <value value="0.3"/>
       <value value="0.4"/>
       <value value="0.5"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="CAA runs" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="1000"/>
+    <metric>[workdays] of communities</metric>
+    <metric>[food-workdays] of communities</metric>
+    <metric>[cumulative-food-stock] of communities</metric>
+    <metric>[cumulative-wood-stock] of communities</metric>
+    <metric>[cumulative-clay-stock] of communities</metric>
+    <metric>[total-food-effort] of communities</metric>
+    <metric>[total-wood-effort] of communities</metric>
+    <metric>[total-clay-effort] of communities</metric>
+    <metric>count patches with [land? = true and wood-age &gt; 0]</metric>
+    <metric>count patches with [food? = true and wood? = false]</metric>
+    <enumeratedValueSet variable="agricultural-days">
+      <value value="250"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="regeneration-time">
+      <value value="2"/>
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="landuse-visualization">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="territory">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="forest-regrowth-lag">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="clay-demand-pc">
+      <value value="5"/>
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="kgs-wood-per-kg-clay">
+      <value value="0.29"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grain-per-grain-yield">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="clay-threshold">
+      <value value="0.25"/>
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-demand-pc">
+      <value value="1.25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="active-percentage">
+      <value value="25"/>
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wood-demand-pc">
+      <value value="1"/>
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="bad-harvest-interval">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="time-limit">
+      <value value="1000"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
