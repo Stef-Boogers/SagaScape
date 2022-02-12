@@ -87,6 +87,9 @@ communities-own [
   cumulative-food-stock ;; for setting out over time later on.
   cumulative-wood-stock
   cumulative-clay-stock
+  saved-food-workdays
+  saved-wood-workdays
+  saved-clay-workdays
 ]
 
 inactive-communities-own [ ; copy of communitities-breed to put communities that are yet to spawn (start-period hasn't arrived yet) on non-active.
@@ -111,6 +114,9 @@ inactive-communities-own [ ; copy of communitities-breed to put communities that
   cumulative-food-stock ;; for setting out over time later on.
   cumulative-wood-stock
   cumulative-clay-stock
+  saved-food-workdays
+  saved-wood-workdays
+  saved-clay-workdays
 ]
 
 rangers-own [
@@ -261,6 +267,9 @@ to setup-communities
         set total-food-effort 0
         set total-wood-effort 0
         set total-clay-effort 0
+        set saved-food-workdays 0
+        set saved-wood-workdays 0
+        set saved-clay-workdays 0
         set food-requirement population * 365 * food-demand-pc / 1000 ;; conversion to tonnes
         set wood-requirement population * (365 * wood-demand-pc  + 0.0661 * [elevation] of patch-here) / 695 ;; conversion to m³, considering average density of wood in Saga at MC of 30% is about 695 kg/m³. Also taking altitude of settlent into account (Boogers et al. in press).
         set clay-requirement population * clay-demand-pc / 1000;; more or less a random number for now, in tons
@@ -436,16 +445,20 @@ to exploit-resources
       ]
       set index index + 1
       set food-stock food-stock + food-exploited
+      set cumulative-food-stock cumulative-food-stock + food-exploited
       set total-food-effort total-food-effort + food-effort
       set food-workdays food-workdays - 42 - 42 * 2 * food-effort / 10 ; see Goodchild 2007 p. 301: 42 mandays per ha per annum. Add to this the amount of workdays spent on migrating back and forth. (no. of trips * time back and forth per trip / hours of work per day (assumed 10))
       set workdays workdays - 42 - 42 * 2 * food-effort / 10
+      set saved-food-workdays saved-food-workdays + 42 + 42 * 2 * food-effort / 10
       if wood-from-the-field > 0 [
         set wood-stock wood-stock + wood-from-the-field
+        set cumulative-wood-stock cumulative-wood-stock + wood-from-the-field
         set total-wood-effort total-wood-effort + food-effort ; wood from the field needs to be collected as well.
         let head-load (max list (random-normal 29.21 14.14) 4.5) / 695;; see Amutabi Kefa et al. 2018 p. 4. Converted to m³ from kg at MC 30%.
         let head-load-gathering-time 49 ; 49 hrs per m³ of wood gathering. See MSc thesis Katie Preston p. 30.
         let workdays-until-deforested (wood-from-the-field / head-load - 2) * (2 * food-effort + head-load * head-load-gathering-time ) / 10 ;; no. of trips * (time back and forth per trip (minus the trips already spent on going to perform agriculture))+ time spent gathering 1 HL) / hours of work per day (assumed 10)
         set workdays workdays - workdays-until-deforested
+        set saved-wood-workdays saved-wood-workdays + workdays-until-deforested
       ]
     ]
     set food-stock food-stock * bad-harvest-modifier
@@ -469,9 +482,11 @@ to exploit-resources
       ]
       set index index + 1
       set wood-stock wood-stock + wood-exploited
+      set cumulative-wood-stock cumulative-wood-stock + wood-exploited
       set total-wood-effort total-wood-effort + wood-effort
       let workdays-until-deforested wood-exploited / head-load * (2 * wood-effort + head-load * head-load-gathering-time ) / 10 ;; no. of trips * (time back and forth per trip + time spent gathering 1 HL) / hours of work per day (assumed 10)
       set workdays workdays - workdays-until-deforested
+      set saved-wood-workdays saved-wood-workdays + workdays-until-deforested
     ]
  ]
 
@@ -501,6 +516,7 @@ to exploit-resources
         set food? false
       ]
       set clay-stock clay-stock + clay-exploited
+      set cumulative-clay-stock cumulative-clay-stock + clay-exploited
       set total-clay-effort total-clay-effort + clay-effort
       set wood-for-clay wood-for-clay + clay-exploited * kgs-wood-per-kg-clay * 1000 / 695 ;; Janssen et al. 2017: 2 - 5 MJ per kg clay required. Further used energy content of dried, yet still moist wood (11.4 - 13.86 MJ/kg).
       let workdays-until-quarried 0.193 * clay-exploited / 1.9 ;; Delaine 1992 p. 182: 0.13 days/m³ to dig clay and 0.063 days/m³ to fill baskets.
@@ -508,13 +524,16 @@ to exploit-resources
       let workdays-hauling baskets * clay-effort * 2 * 6.5 / 10 ;; Going back and forth between quarry and community, taking into account slowing factor of 6.5 (calculated from Delaine 1992) bc of load and 10 hr-working day.
       let workdays-until-fired 4.5 / 0.980 * clay-exploited;; Janssen: 4-5 days per firing cycle of 360 - 1600 kgs of clay vessels. Only actual firing taken into account, no throwing etc.
       set workdays workdays - workdays-until-quarried - workdays-hauling - workdays-until-fired
+      set saved-clay-workdays saved-clay-workdays + workdays-until-quarried + workdays-hauling + workdays-until-fired
       if wood-from-the-field > 0 [
         set wood-stock wood-stock + wood-from-the-field
+        set cumulative-wood-stock cumulative-wood-stock  + wood-from-the-field
         set total-wood-effort total-wood-effort + clay-effort ; wood from the field needs to be collected as well.
         let head-load (max list (random-normal 29.21 14.14) 4.5) / 695;; see Amutabi Kefa et al. 2018 p. 4. Converted to m³ from kg at MC 30%.
         let head-load-gathering-time 49 ; 49 hrs per m³ of wood gathering. See MSc thesis Katie Preston p. 30.
         let workdays-until-deforested (wood-from-the-field / head-load - 2) * (2 * clay-effort + head-load * head-load-gathering-time ) / 10 ;; no. of trips * (time back and forth per trip (minus the trips already spent on going to perform clay excavation))+ time spent gathering 1 HL) / hours of work per day (assumed 10)
         set workdays workdays - workdays-until-deforested
+        set saved-wood-workdays saved-wood-workdays + workdays-until-deforested
       ]
     ]
   ]
@@ -522,15 +541,9 @@ end
 
 to burn-resources ;; every tick communities use (part of) available food, clay and wood to sustain themselves
   ask communities [;; possible to go below 0, so it can be corrected the following  year
-    set cumulative-food-stock cumulative-food-stock + food-stock ;; for noticing trends later on.
-    set cumulative-wood-stock cumulative-wood-stock + wood-stock
-    set cumulative-clay-stock cumulative-clay-stock + clay-stock
-
     set food-stock food-stock / grain-per-grain-factor - food-requirement ;; portion  of wheat is removed as seed for next year.
     set wood-stock wood-stock - wood-requirement - wood-for-clay ;; clay is only exploited after wood, so additional wood is cut the next year.
     set clay-stock clay-stock - clay-requirement
-
-
   ]
 
 end
@@ -778,7 +791,7 @@ regeneration-time
 regeneration-time
 1
 3
-3.0
+2.0
 1
 1
 NIL
@@ -804,7 +817,7 @@ clay-threshold
 clay-threshold
 0.3
 0.5
-0.35
+0.25
 0.05
 1
 tonnes per m³
@@ -819,7 +832,7 @@ food-demand-pc
 food-demand-pc
 0.75
 1.5
-1.45
+0.75
 0.1
 1
 kg/day
@@ -834,7 +847,7 @@ wood-demand-pc
 wood-demand-pc
 1
 5
-5.0
+1.0
 0.05
 1
 kg/day
@@ -849,7 +862,7 @@ clay-demand-pc
 clay-demand-pc
 0
 10
-5.0
+1.0
 1
 1
 kg/year
@@ -894,7 +907,7 @@ kgs-wood-per-kg-clay
 kgs-wood-per-kg-clay
 0.14
 0.44
-0.44
+0.29
 0.05
 1
 NIL
@@ -924,7 +937,7 @@ bad-harvest-interval
 bad-harvest-interval
 1
 10
-6.0
+5.0
 1
 1
 year
@@ -939,7 +952,7 @@ forest-regrowth-lag
 forest-regrowth-lag
 3
 10
-5.0
+6.0
 1
 1
 years
@@ -1424,16 +1437,17 @@ NetLogo 6.1.1
     <setup>setup</setup>
     <go>go</go>
     <timeLimit steps="1000"/>
-    <metric>[workdays] of communities</metric>
-    <metric>[food-workdays] of communities</metric>
-    <metric>[cumulative-food-stock] of communities</metric>
-    <metric>[cumulative-wood-stock] of communities</metric>
-    <metric>[cumulative-clay-stock] of communities</metric>
-    <metric>[total-food-effort] of communities</metric>
-    <metric>[total-wood-effort] of communities</metric>
-    <metric>[total-clay-effort] of communities</metric>
+    <metric>[(list who population precision saved-food-workdays 2)] of communities</metric>
+    <metric>[(list who precision saved-wood-workdays 2)] of communities</metric>
+    <metric>[(list who precision saved-clay-workdays 2)] of communities</metric>
+    <metric>[(list who precision cumulative-food-stock 2)] of communities</metric>
+    <metric>[(list who precision cumulative-wood-stock 2)] of communities</metric>
+    <metric>[(list who precision cumulative-clay-stock 2)] of communities</metric>
+    <metric>[(list who precision total-food-effort 2)] of communities</metric>
+    <metric>[(list who precision total-wood-effort 2)] of communities</metric>
+    <metric>[(list who precision total-clay-effort 2)] of communities</metric>
     <metric>count patches with [land? = true and wood-age &gt; 0]</metric>
-    <metric>count patches with [food? = true and wood? = false]</metric>
+    <metric>count patches with [land? = true and food? = true and wood? = false]</metric>
     <enumeratedValueSet variable="agricultural-days">
       <value value="250"/>
     </enumeratedValueSet>
@@ -1451,7 +1465,7 @@ NetLogo 6.1.1
       <value value="6"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="clay-demand-pc">
-      <value value="5"/>
+      <value value="1"/>
       <value value="10"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="kgs-wood-per-kg-clay">
@@ -1465,15 +1479,15 @@ NetLogo 6.1.1
       <value value="0.5"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="food-demand-pc">
-      <value value="1.25"/>
+      <value value="0.75"/>
+      <value value="1.5"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="active-percentage">
       <value value="25"/>
-      <value value="50"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="wood-demand-pc">
       <value value="1"/>
-      <value value="3"/>
+      <value value="4"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="bad-harvest-interval">
       <value value="5"/>
