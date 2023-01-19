@@ -12,6 +12,8 @@
 ;; TBI: depreciation of the woodstock? When fields are cleared for agriculture, the resulting woodstock is so massive that it takes years to get through.
 ;; TBI: clay exploitation procedure with realistic values.
 
+;; TBI: candidate patches need to be filtered so that they are all still reachable, otherwise a far away one (that happens to optimize yield:distance) could lead to the time budget being depleted too soon.
+
 
 extensions [
   gis
